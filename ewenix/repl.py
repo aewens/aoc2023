@@ -47,15 +47,32 @@ class REPL:
         elif parts[0] == "quit":
             return False, "quit"
 
-    def loop(self):
-        while True:
-            data = self.read()
-            display, result = self.eval(data)
-            if display:
+    def execute(self, data, sim=True):
+        display, result = self.eval(data)
+        if display:
+            if sim:
+                return False, result
+
+            else:
                 print(result)
                 print()
 
-            elif result == "quit":
+        elif result == "quit":
+            if sim:
+                return True, None
+
+            return True
+
+        if sim:
+            return False, None
+
+        return False
+
+    def loop(self):
+        while True:
+            data = self.read()
+            done = self.execute(data, False)
+            if done:
                 break
 
     def start(self):
