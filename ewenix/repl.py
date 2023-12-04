@@ -1,10 +1,12 @@
-from ewenix.scheduler import Scheduler
-from ewenix.monad import Nil
 from ewenix.util import now, mint
+from ewenix.monad import Nil
+from ewenix.scheduler import Scheduler
+from ewenix.algorithms import Memory
 
 class REPL:
     def __init__(self):
         self.sched = Scheduler()
+        self.mem = Memory(32*1024)
 
     def read(self):
         return input("ewenix> ")
@@ -14,6 +16,10 @@ class REPL:
         commands["help"] = "Display this message"
         commands["print"] = "Print back input"
         commands["echo"] = "Print back input with a delay"
+        commands["alloc"] = "Allocate blocks of memory"
+        commands["free"] = "Free blocks of memory"
+        commands["write"] = "Write to blocks of memory"
+        commands["read"] = "Read from blocks of memory"
         commands["quit"] = "Exit the REPL"
 
         parts = list()
@@ -55,6 +61,28 @@ class REPL:
             content = " ".join(parts[2:])
             jobid = self.sched.push(f"print {content}", suspend)
             return True, f"Queued: {jobid} until {suspend}"
+
+        elif parts[0] == "alloc":
+            error, result = self.mem.alloc(mint(parts[1], 0))
+            return True, result
+
+        elif parts[0] == "free":
+            error, result = self.mem.free(mint(parts[1], 0))
+            return True, result
+
+        elif parts[0] == "write":
+            error, result = self.mem.write(
+                mint(parts[1], 0),
+                mint(parts[2], 0)
+            )
+            return True, result
+
+        elif parts[0] == "read":
+            error, result = self.mem.read(
+                mint(parts[1], 0),
+                mint(parts[2], 0)
+            )
+            return True, result
 
         elif parts[0] == "quit":
             return False, "quit"

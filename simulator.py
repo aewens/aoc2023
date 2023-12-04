@@ -11,7 +11,7 @@ def main():
 
     done, result = repl.execute("help")
     assert done is False, "Invalid help result 1"
-    assert len(result.split("\n")) == 4, "Invalid help result 2"
+    assert len(result.split("\n")) == 8, "Invalid help result 2"
 
     done, result = repl.execute("print hello world")
     assert done is False, "Invalid print result 1"
@@ -58,7 +58,45 @@ def main():
 
         prev = value
 
+    repl.sched.clear()
     print(f"Echo Benchmark: {perf_counter()-timer3:.05f}s")
+
+    timer4 = perf_counter()
+
+    assert repl.mem.mem[0] == 0, repl.mem.mem[0]
+
+    error, result = repl.mem.alloc(1024)
+    assert error is False, result
+    assert isinstance(result, int), result
+    pointer = result
+
+    error, result = repl.mem.alloc(1)
+    assert error is True, result
+    assert isinstance(result, str), result
+
+    error, result = repl.mem.read(pointer, 4)
+    assert error is False, result
+    assert result == [0,0,0,0], result
+
+    error, result = repl.mem.free(pointer)
+    assert error is False, result
+    assert result is None, result
+
+    error, result = repl.mem.alloc(4)
+    assert error is False, result
+    assert isinstance(result, int), result
+    pointer = result
+
+    error, result = repl.mem.write(pointer, [1,2,3,4])
+    assert error is False, result
+    assert result is None, result
+
+    error, result = repl.mem.read(pointer, 4)
+    assert error is False, result
+    assert result == [1,2,3,4], result
+
+    repl.mem.clear()
+    print(f"Memory Benchmark: {perf_counter()-timer4:.05f}s")
 
 if __name__ == "__main__":
     main()
