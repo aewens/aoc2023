@@ -11,7 +11,7 @@ def main():
 
     done, result = repl.execute("help")
     assert done is False, "Invalid help result 1"
-    assert len(result.split("\n")) == 8, "Invalid help result 2"
+    assert len(result.split("\n")) == 10, "Invalid help result 2"
 
     done, result = repl.execute("print hello world")
     assert done is False, "Invalid print result 1"
@@ -89,7 +89,7 @@ def main():
 
     error, result = repl.mem.write(pointer, [1,2,3,4])
     assert error is False, result
-    assert result is None, result
+    assert isinstance(result, int), result
 
     error, result = repl.mem.read(pointer, 4)
     assert error is False, result
@@ -97,6 +97,49 @@ def main():
 
     repl.mem.clear()
     print(f"Memory Benchmark: {perf_counter()-timer4:.05f}s")
+
+    done, result = repl.execute("alloc 4")
+    assert done is False, "Invalid alloc result 1"
+    try:
+        assert isinstance(int(result), int), result
+
+    except Exception as e:
+        assert False, (result, e)
+
+    pointer = result
+    done, result = repl.execute(f"write {pointer} 1 2 3 4")
+    assert done is False, "Invalid write result 1"
+    assert isinstance(result, int), result
+
+    done, result = repl.execute(f"read {pointer} 4")
+    assert done is False, "Invalid read result 1"
+    assert result == [1,2,3,4], result
+
+    repl.mem.clear()
+
+    raw = {"key": "value", "numbers": [1,2,3]}
+    res = "d3:key5:value7:numbersli1ei2ei3eee"
+    encoded = repl.encode(raw)
+    assert encoded == res, encoded
+
+    junk, decoded = repl.decode(encoded)
+    assert junk == "", junk
+    assert decoded == raw, decoded
+
+    timer5 = perf_counter()
+
+    subject = '@{"key": "value", "numbers": [1,2,3]}'
+    done, result = repl.execute(f"bwrite -1 {subject}")
+    assert done is False, "Invalid bwrite result 1"
+    assert isinstance(result, int), result
+
+    pointer = result
+
+    done, result = repl.execute(f"bread {pointer} {len(res)}")
+    assert done is False, "Invalid bread result 1"
+    assert result == raw, result
+
+    print(f"Bencode Benchmark: {perf_counter()-timer4:.05f}s")
 
 if __name__ == "__main__":
     main()

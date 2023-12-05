@@ -187,7 +187,7 @@ class Memory:
 
             self.mem[address+i] = byte
 
-        return False, None
+        return False, address
 
     def read(self, address, size):
         if address + size > len(self.mem):

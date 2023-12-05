@@ -2,11 +2,18 @@ from ewenix.util import now, mint
 from ewenix.monad import Nil
 from ewenix.scheduler import Scheduler
 from ewenix.algorithms import Memory
+from ewenix.encoding import bencode, bdecode
 
 class REPL:
     def __init__(self):
         self.sched = Scheduler()
         self.mem = Memory(32*1024)
+
+    def encode(self, data, enc=False):
+        return bencode(data, enc=enc)
+
+    def decode(self, data):
+        return bdecode(data)
 
     def read(self):
         return input("ewenix> ")
@@ -20,6 +27,8 @@ class REPL:
         commands["free"] = "Free blocks of memory"
         commands["write"] = "Write to blocks of memory"
         commands["read"] = "Read from blocks of memory"
+        commands["bwrite"] = "Write bencode to blocks of memory"
+        commands["bread"] = "Read bencode from blocks of memory"
         commands["quit"] = "Exit the REPL"
 
         parts = list()
@@ -27,6 +36,10 @@ class REPL:
         mode = 0
         for i in range(len(data)):
             char = data[i]
+            if char == "@":
+                mode = 3
+                continue
+
             if char == "\"":
                 if mode == 0:
                     mode = 2
@@ -38,7 +51,7 @@ class REPL:
                     mode = 0
                     continue
 
-            elif char == " " and mode != 1:
+            elif char == " " and mode not in [1,3]:
                 parts.append(cache)
                 cache = ""
                 mode = 0
@@ -73,7 +86,7 @@ class REPL:
         elif parts[0] == "write":
             error, result = self.mem.write(
                 mint(parts[1], 0),
-                mint(parts[2], 0)
+                [int(p) for p in parts[2:]]
             )
             return True, result
 
@@ -83,6 +96,22 @@ class REPL:
                 mint(parts[2], 0)
             )
             return True, result
+
+        elif parts[0] == "bwrite":
+            error, result = self.mem.write(
+                mint(parts[1], 0),
+                [ord(p) for p in bencode(parts[2], True)]
+            )
+            return True, result
+
+        elif parts[0] == "bread":
+            error, result = self.mem.read(
+                mint(parts[1], 0),
+                mint(parts[2], 0)
+            )
+            value = "".join(chr(r) for r in result)
+            _, final = bdecode(value)
+            return True, final
 
         elif parts[0] == "quit":
             return False, "quit"
