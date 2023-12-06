@@ -13,14 +13,18 @@ class Scheduler:
         self.queue = list()
         self.jobs = defaultdict(dict)
 
+    def get_next_id(self):
+        jobid = self.jobid + 1
+        self.jobid = jobid
+        return jobid
+
     def push(self, action, suspend=None, jobid=None):
         ts = now()
         if suspend is None:
             suspend = ts
 
         if jobid is None:
-            jobid = self.jobid + 1
-            self.jobid = jobid
+            jobid = self.get_next_id()
 
         jobs = self.jobs[suspend]
         if jobs.get(jobid) is None:

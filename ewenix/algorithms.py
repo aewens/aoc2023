@@ -123,6 +123,7 @@ class Memory:
     def clear(self):
         self.mem = [0] * self.size
         self.blocks = Buddy(self.size // self.block)
+        self.owners = dict()
 
     def assign(self, start, left, value):
         k = start // 8
@@ -144,7 +145,7 @@ class Memory:
                 k = k+1
                 o = 0
 
-    def alloc(self, size):
+    def alloc(self, size, jobid=None):
         error, result = self.blocks.alloc(size)
         if error:
             return True, result
@@ -154,9 +155,14 @@ class Memory:
         self.assign(span.start, left, "1")
 
         address = span.start * self.block
-        return False, address + self.offset
+        uaddress = address + self.offset
+        self.owners[uaddress] = jobid
+        return False, uaddress
 
-    def free(self, address):
+    def free(self, address, jobid=None):
+        if self.owners.get(address) != jobid:
+            return True, "Unauthorized memory address"
+
         pointer = (address - self.offset) // self.block
         left = self.blocks.pointers.get(pointer)
 
@@ -165,20 +171,24 @@ class Memory:
             return True, result
 
         self.assign(pointer, left, "0")
+        self.owners.pop(address, None)
         return False, result
 
-    def write(self, address, data):
+    def write(self, address, data, jobid=None):
         if address == -1:
             size = ceil(len(data) / self.block)
-            error, result = self.alloc(size)
+            error, result = self.alloc(size, jobid=jobid)
             if error:
                 return True, result
 
-            address = result + self.offset
+            address = result
             print(f"Dynamically allocated address: {address}")
 
         if not self.blocks.allocated:
             return True, "Address is not allocated"
+
+        if self.owners.get(address) != jobid:
+            return True, "Unauthorized memory address"
 
         for i in range(len(data)):
             byte = data[i]
@@ -189,8 +199,16 @@ class Memory:
 
         return False, address
 
-    def read(self, address, size):
+    def read(self, address, size, jobid=None):
         if address + size > len(self.mem):
             return True, "Out of bounds exception (2)"
+
+        if self.owners.get(address) != jobid:
+            return True, "Unauthorized memory address (1)"
+
+        pointer = (address - self.offset) // self.block
+        psize = self.blocks.pointers.get(pointer)
+        if psize is None or psize * self.block < size:
+            return True, "Unauthorized memory address (2)"
 
         return False, self.mem[address:address+size]

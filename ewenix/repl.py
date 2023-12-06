@@ -4,6 +4,8 @@ from ewenix.scheduler import Scheduler
 from ewenix.algorithms import Memory
 from ewenix.encoding import bencode, bdecode
 
+QUIT = "%QUIT%"
+
 class REPL:
     def __init__(self):
         self.sched = Scheduler()
@@ -18,7 +20,7 @@ class REPL:
     def read(self):
         return input("ewenix> ")
 
-    def eval(self, data):
+    def eval(self, data, jobid=None):
         commands = dict()
         commands["help"] = "Display this message"
         commands["print"] = "Print back input"
@@ -46,13 +48,26 @@ class REPL:
                     continue
 
                 elif mode == 1:
-                    parts.append(cache)
+                    if len(cache) > 0:
+                        parts.append(cache)
+
                     cache = ""
                     mode = 0
                     continue
 
             elif char == " " and mode not in [1,3]:
-                parts.append(cache)
+                if len(cache) > 0:
+                    parts.append(cache)
+
+                cache = ""
+                mode = 0
+                continue
+
+            elif char == ";" and mode == 3:
+                cache = cache + char
+                if len(cache) > 0:
+                    parts.append(cache)
+
                 cache = ""
                 mode = 0
                 continue
@@ -76,59 +91,126 @@ class REPL:
             return True, f"Queued: {jobid} until {suspend}"
 
         elif parts[0] == "alloc":
-            error, result = self.mem.alloc(mint(parts[1], 0))
+            if jobid is None:
+                jobid = self.sched.get_next_id()
+
+            error, result = self.mem.alloc(mint(parts[1], 0), jobid=jobid)
             return True, result
 
         elif parts[0] == "free":
-            error, result = self.mem.free(mint(parts[1], 0))
+            if jobid is None:
+                jobid = self.sched.get_next_id()
+
+            error, result = self.mem.free(mint(parts[1], 0), jobid=jobid)
             return True, result
 
         elif parts[0] == "write":
+            if jobid is None:
+                jobid = self.sched.get_next_id()
+
             error, result = self.mem.write(
                 mint(parts[1], 0),
-                [int(p) for p in parts[2:]]
+                [int(p) for p in parts[2:]],
+                jobid=jobid
             )
             return True, result
 
         elif parts[0] == "read":
+            if jobid is None:
+                jobid = self.sched.get_next_id()
+
             error, result = self.mem.read(
                 mint(parts[1], 0),
-                mint(parts[2], 0)
+                mint(parts[2], 0),
+                jobid=jobid
             )
             return True, result
 
         elif parts[0] == "bwrite":
+            if jobid is None:
+                jobid = self.sched.get_next_id()
+
             error, result = self.mem.write(
                 mint(parts[1], 0),
-                [ord(p) for p in bencode(parts[2], True)]
+                [ord(p) for p in bencode(parts[2], True)],
+                jobid=jobid
             )
             return True, result
 
         elif parts[0] == "bread":
+            if jobid is None:
+                jobid = self.sched.get_next_id()
+
             error, result = self.mem.read(
                 mint(parts[1], 0),
-                mint(parts[2], 0)
+                mint(parts[2], 0),
+                jobid=jobid
             )
             value = "".join(chr(r) for r in result)
             _, final = bdecode(value)
             return True, final
 
+        elif parts[0] == "run":
+            if jobid is None:
+                jobid = self.sched.get_next_id()
+
+            index = 1
+            results = list()
+            command = list()
+            while index < len(parts):
+                part = parts[index]
+                #print(part, index)
+                index = index + 1
+
+                if "\"" in part[1:-1]:
+                    part = f"@{part}"
+
+                run = False
+                if part == ";":
+                    run = True
+
+                elif part.endswith(";"):
+                    command.append(part[:-1])
+                    run = True
+
+                elif index == len(parts):
+                    command.append(part)
+                    run = True
+
+                if not run:
+                    command.append(part)
+                    continue
+
+                cmd = " ".join(command)
+                cmd = cmd.strip()
+                command = list()
+
+                display, result = self.eval(cmd, jobid=jobid)
+                results.append((display, result))
+
+            return True, results
+
         elif parts[0] == "quit":
-            return False, "quit"
+            return False, QUIT
 
         return False, None
 
-    def execute(self, data, sim=True):
-        display, result = self.eval(data)
+    def execute(self, data, sim=True, jobid=None):
+        display, results = self.eval(data, jobid=jobid)
         if display:
             if sim:
-                return False, result
+                return False, results
 
             else:
-                print(result)
+                if not isinstance(results, list):
+                    results = [results]
+
+                for result in results:
+                    print(result)
+
                 print()
 
-        elif result == "quit":
+        elif results == QUIT:
             if sim:
                 return True, None
 

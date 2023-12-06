@@ -98,7 +98,7 @@ def main():
     repl.mem.clear()
     print(f"Memory Benchmark: {perf_counter()-timer4:.05f}s")
 
-    done, result = repl.execute("alloc 4")
+    done, result = repl.execute("alloc 4", jobid=2)
     assert done is False, "Invalid alloc result 1"
     try:
         assert isinstance(int(result), int), result
@@ -107,11 +107,11 @@ def main():
         assert False, (result, e)
 
     pointer = result
-    done, result = repl.execute(f"write {pointer} 1 2 3 4")
+    done, result = repl.execute(f"write {pointer} 1 2 3 4", jobid=2)
     assert done is False, "Invalid write result 1"
     assert isinstance(result, int), result
 
-    done, result = repl.execute(f"read {pointer} 4")
+    done, result = repl.execute(f"read {pointer} 4", jobid=2)
     assert done is False, "Invalid read result 1"
     assert result == [1,2,3,4], result
 
@@ -129,17 +129,29 @@ def main():
     timer5 = perf_counter()
 
     subject = '@{"key": "value", "numbers": [1,2,3]}'
-    done, result = repl.execute(f"bwrite -1 {subject}")
+    done, result = repl.execute(f"bwrite -1 {subject}", jobid=2)
     assert done is False, "Invalid bwrite result 1"
     assert isinstance(result, int), result
 
     pointer = result
 
-    done, result = repl.execute(f"bread {pointer} {len(res)}")
+    done, result = repl.execute(f"bread {pointer} {len(res)}", jobid=2)
     assert done is False, "Invalid bread result 1"
     assert result == raw, result
 
-    print(f"Bencode Benchmark: {perf_counter()-timer4:.05f}s")
+    print(f"Bencode Benchmark: {perf_counter()-timer5:.05f}s")
+    repl.mem.clear()
+
+    timer6 = perf_counter()
+
+    done, result = repl.execute(f"""
+    run bwrite -1 {subject}; bread 128 {len(res)}
+    """.strip())
+    assert done is False, "Invalid run result"
+    assert isinstance(result, list), result
+    assert result[1][1] == raw, result
+
+    print(f"Run Benchmark: {perf_counter()-timer6:.05f}s")
 
 if __name__ == "__main__":
     main()
