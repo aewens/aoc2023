@@ -65,7 +65,7 @@ def main():
 
     assert repl.mem.mem[0] == 0, repl.mem.mem[0]
 
-    error, result = repl.mem.alloc(1024)
+    error, result = repl.mem.alloc(1020)
     assert error is False, result
     assert isinstance(result, int), result
     pointer = result
